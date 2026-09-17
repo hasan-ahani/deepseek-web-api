@@ -1,0 +1,15 @@
+venv/
+session/
+.env
+.env.*
+.git/
+.gitignore
+.github/
+__pycache__/
+*.pyc
+*.pyo
+examples/
+README.md
+LICENSE
+Dockerfile
+.dockerignore
