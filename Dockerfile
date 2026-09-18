@@ -12,6 +12,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends xvfb \
+    && rm -rf /var/lib/apt/lists/* \
+
 # Install Python deps first (better layer caching), then the Chromium build the
 # bundled Playwright expects so client versions always match. --with-deps pulls
 # the OS shared libraries Chromium needs.
