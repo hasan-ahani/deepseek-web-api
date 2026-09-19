@@ -21,6 +21,7 @@ You sign in once in a browser with your DeepSeek account; your session is saved 
 - [Usage 1: In Python (no server)](#usage-1-in-python-no-server)
 - [Usage 2: As an OpenAI-compatible server](#usage-2-as-an-openai-compatible-server)
 - [Command line](#command-line)
+- [Running in Docker (headless)](#running-in-docker-headless)
 - [Human-check & proof-of-work (automatic)](#human-check--proof-of-work-automatic)
 - [Models, DeepThink & web search](#models-deepthink--web-search)
 - [Concurrency](#concurrency)
@@ -171,6 +172,35 @@ curl http://localhost:8000/v1/chat/completions \
 ```bash
 python -m deepseek.auth          # sign in and save the session
 ```
+
+---
+
+## Running in Docker (headless)
+
+The container serves the API only — it **cannot create a session**, because the
+one-time human-check needs a real browser window (the container has no display).
+Sign in on a desktop first, then hand the resulting `session.json` to the
+container:
+
+```bash
+# 1. On your machine, with a browser: writes session/session.json
+python -m deepseek.auth
+
+# 2. Run the server with that session mounted
+docker run --rm -it -p 8000:8000 \
+  -v "$PWD/session:/app/session" \
+  -e WEUI_AI_API_KEY=your-secret \
+  hassanahani/deepseek-web-api:latest
+```
+
+`session.json` is the only portable artifact: the Chromium profile is **not**
+(a Linux container can't read a macOS/Windows profile). Re-create and re-push
+`session.json` before `SESSION_MAX_AGE` expires — the container can't refresh it
+headlessly, and once it expires the API returns `503 login_required`.
+
+> On the VPS, `scripts/push-session.sh` copies `session.json` into the mounted
+> session directory. Don't try to run `python -m deepseek.auth` inside the image;
+> it fails with a "Missing X server or $DISPLAY" error by design.
 
 ---
 

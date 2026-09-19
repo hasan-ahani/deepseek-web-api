@@ -6,15 +6,12 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_RETRIES=10 \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
     PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=120000 \
+    DEEPSEEK_BROWSER_ARGS="--no-sandbox --disable-dev-shm-usage" \
     HOST=0.0.0.0 \
     PORT=8000 \
     SERVER_INTERACTIVE_LOGIN=0
 
 WORKDIR /app
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends xvfb \
-    && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps first (better layer caching), then the Chromium build the
 # bundled Playwright expects so client versions always match. --with-deps pulls

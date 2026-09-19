@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -50,10 +51,11 @@ class LoginRequired(RuntimeError):
     The message tells the user how to log in."""
 
     DEFAULT = (
-        "No DeepSeek session found. Log in first by running:\n"
+        "No usable DeepSeek session found. On a desktop, run:\n"
         "    python -m deepseek.auth\n"
-        "This opens a browser once so you can sign in and clear the human-check; "
-        "afterwards the server reuses the saved session automatically."
+        "to sign in and clear the human-check once, then copy/mount the generated "
+        "session/session.json onto the server (see scripts/push-session.sh). The "
+        "saved session is then reused automatically."
     )
 
     def __init__(self, message: str = DEFAULT):
@@ -155,6 +157,12 @@ def _safe_goto(page, url: str) -> None:
     page.wait_for_timeout(2000)
 
 
+def _is_headless_host() -> bool:
+    """True on a Linux host with no display (e.g. a container). A headed browser
+    cannot open there, so interactive login has to run on a desktop instead."""
+    return sys.platform.startswith("linux") and not os.getenv("DISPLAY")
+
+
 def login(
     profile_dir: Path = DEFAULT_PROFILE_DIR,
     headless: bool = False,
@@ -169,6 +177,14 @@ def login(
     CHAT_URL and goes straight to the sign-in page. Callers that have just
     confirmed there's no token (e.g. get_session after a failed headless refresh)
     pass this so the window doesn't visibly bounce CHAT_URL -> SIGNIN_URL."""
+    if not headless and _is_headless_host():
+        raise RuntimeError(
+            "Interactive login needs a desktop browser, but this host has no "
+            "display (no $DISPLAY). Run `python -m deepseek.auth` on your own "
+            "machine, then copy/mount session/session.json into the server — "
+            "see scripts/push-session.sh."
+        )
+
     profile_dir.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
         try:
@@ -187,7 +203,7 @@ def login(
         existing = None
         if not assume_logged_out:
             _safe_goto(page, CHAT_URL)
-            existing = page.evaluate(_READ_TOKEN_JS)
+            existing = _safe_evaluate(page, _READ_TOKEN_JS)
 
         if not existing:
             _safe_goto(page, SIGNIN_URL)
@@ -256,6 +272,8 @@ def get_session(
         return session
 
     if not allow_interactive:
+        print("[auth] No cached session and no signed-in profile to refresh from; "
+              "a fresh session.json must be supplied (or run on a desktop).")
         raise LoginRequired()
 
     # Not logged in yet — open a visible window so the user can sign in (and
